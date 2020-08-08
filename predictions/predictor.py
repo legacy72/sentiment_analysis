@@ -45,11 +45,25 @@ class Predictor:
             prob_normal = truncate(prob_normal, self.COUNT_DIGITS_AFTER_DOT)
             prob_bad = truncate(1 - prob_normal, self.COUNT_DIGITS_AFTER_DOT)
 
+        self.normalize_bad_words()
+
         return {
             'probability_bad': prob_bad,
             'probability_normal': prob_normal,
             'bad_words': self.bad_words,
         }
+
+    # нормализация насколько слово плохое/хорошее в диапазоне от 0 до 1
+    def normalize_bad_words(self):
+        if not self.bad_words.values():
+            return
+        max_val = max(self.bad_words.values())
+        min_val = min(self.bad_words.values())
+        for key, value in self.bad_words.items():
+            try:
+                self.bad_words[key] = (value - min_val) / (max_val - min_val)
+            except ZeroDivisionError:
+                self.bad_words[key] = 1
 
     # подготовка тренировочных данных
     def train_data(self):
@@ -101,7 +115,14 @@ class Predictor:
         for word in words:
             if word['prepared'] in self._bad_dict.keys():
                 W.append(self._bad_dict[word['prepared']])
-                self.bad_words[word['common']] = self._bad_dict[word['prepared']] / count_unique_keys
+                # процент насколко слово плохое
+                if word['prepared'] in self._normal_dict.keys():
+                    count_normal_words_including = self._normal_dict[word['prepared']]
+                else:
+                    count_normal_words_including = 0.1
+                how_word_is_bad = self._bad_dict[word['prepared']] / count_normal_words_including
+                if how_word_is_bad > 1:
+                    self.bad_words[word['common']] = how_word_is_bad
             else:
                 W.append(0)
 
